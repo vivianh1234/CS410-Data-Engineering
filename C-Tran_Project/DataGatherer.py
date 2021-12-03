@@ -32,6 +32,31 @@ def writeToFile(name, raw):
     f.write(raw)
     f.close()
 
+# Optional per-message on_delivery handler (triggered by poll() or flush())
+# when a message has been successfully delivered or
+# permanently failed delivery (after retries).
+def acked(err, msg):
+    global delivered_records
+    """Delivery report handler called on
+    successful or failed delivery of message
+    """
+    if err is not None:
+        print("Failed to deliver message: {}".format(err))
+    else:
+        delivered_records += 1
+        print("Produced record to topic {} partition [{}] @ offset {}"
+                .format(msg.topic(), msg.partition(), msg.offset()))
+
+def createProducer(conf):
+    producer = Producer({
+        'bootstrap.servers': conf['bootstrap.servers'],
+        'sasl.mechanisms': conf['sasl.mechanisms'],
+        'security.protocol': conf['security.protocol'],
+        'sasl.username': conf['sasl.username'],
+        'sasl.password': conf['sasl.password'],
+    })
+    return producer
+
 if __name__ == '__main__':
 
     name = getFilename()
@@ -45,33 +70,12 @@ if __name__ == '__main__':
     conf = ccloud_lib.read_ccloud_config(config_file)
 
     # Create Producer instance
-    producer = Producer({
-        'bootstrap.servers': conf['bootstrap.servers'],
-        'sasl.mechanisms': conf['sasl.mechanisms'],
-        'security.protocol': conf['security.protocol'],
-        'sasl.username': conf['sasl.username'],
-        'sasl.password': conf['sasl.password'],
-    })
+    producer = createProducer(conf) 
 
     # Create topic if needed
     ccloud_lib.create_topic(conf, topic)
 
     delivered_records = 0
-
-    # Optional per-message on_delivery handler (triggered by poll() or flush())
-    # when a message has been successfully delivered or
-    # permanently failed delivery (after retries).
-    def acked(err, msg):
-        global delivered_records
-        """Delivery report handler called on
-        successful or failed delivery of message
-        """
-        if err is not None:
-            print("Failed to deliver message: {}".format(err))
-        else:
-            delivered_records += 1
-            print("Produced record to topic {} partition [{}] @ offset {}"
-                  .format(msg.topic(), msg.partition(), msg.offset()))
 
     for n in breadcrumbs:
         record_key = "sensor-data"
