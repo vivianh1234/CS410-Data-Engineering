@@ -6,21 +6,37 @@ from confluent_kafka import Producer, KafkaError
 import json
 import ccloud_lib
 
-timezone = pytz.timezone("US/Pacific")
-date = dt.datetime.today()
-today = timezone.localize(date)
+def getFilename():
+    timezone = pytz.timezone("US/Pacific")
+    date = dt.datetime.today()
+    today = timezone.localize(date)
 
-data = urllib.request.urlopen("http://rbi.ddns.net/getBreadCrumbData")
-name = "BreadCrumbData{today}.json".format(today = today)
-name = name[:24] + ".json"
+    name = "BreadCrumbData{today}.json".format(today = today)
+    name = name[:24] + ".json"
+    return name
 
-#parsing JSON data
-raw = data.read()
+def getData():
+    data = urllib.request.urlopen("http://rbi.ddns.net/getBreadCrumbData")
+    #parsing JSON data
+    raw = data.read()
+    return raw
 
-breadcrumbs = json.loads(raw)
-#print(breadcrumbs[0])
+def loadBreadcrumbs():
+    breadcrumbs = json.loads(raw)
+    #print(breadcrumbs[0])
+    return breadcrumbs
+
+def writeToFile(name, raw):
+    #write to file
+    f = open(name, 'wb')
+    f.write(raw)
+    f.close()
 
 if __name__ == '__main__':
+
+    name = getFilename()
+    raw = getData()
+    breadcrumbs = loadBreadcrumbs()
 
     # Read arguments and configurations and initialize
     args = ccloud_lib.parse_args()
@@ -69,7 +85,4 @@ if __name__ == '__main__':
 
     print("{} messages were produced to topic {}!".format(delivered_records, topic))
 
-#write to file
-f = open(name, 'wb')
-f.write(raw)
-f.close()
+    writeToFile(name, raw)
