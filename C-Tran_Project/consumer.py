@@ -50,11 +50,11 @@ def getFilename():
   name = name[:24]+".txt"
   return name
 
-def convert_t(seconds):
+def convert_time(seconds):
   return time.strftime("%H:%M:%S", time.gmtime(int(seconds)))
 
 # connect to the database
-def dbconnect():
+def connectToDB():
 	connection = psycopg2.connect(
         host="localhost",
         database=DBname,
@@ -64,7 +64,7 @@ def dbconnect():
 	connection.autocommit = True
 	return connection
 
-def load(conn, icmdlist):
+def loadToDB(conn, icmdlist):
 
 	with conn.cursor() as cursor:
 		print(f"Loading {len(icmdlist)} rows")
@@ -202,16 +202,16 @@ def assertBCData(data):
       skip = True 
       failures["gps_hdop_nonnegative"].append(data)
 
-def transfromBCData(data, speed, timestamp):
+def transformBCData(data, speed, timestamp):
   #Timestamp: Convert the ACT_TIME (seconds from midnight) to postgres timestamp
-  timestamp = str(data["OPD_DATE"]) + " " + str(convert_t(data["ACT_TIME"]))
+  timestamp = str(data["OPD_DATE"]) + " " + str(convert_time(data["ACT_TIME"]))
 
   #Speed: convert the velocity string into a float and convert the float from 
   #meters per second to miles per hour.
   speed = speed * 2.237
 
 #deal with breadcrumb data
-def consume_bc(data):
+def consumeBCData(data):
 
   global skip
   skip = False
@@ -238,7 +238,7 @@ def consume_bc(data):
   speed = getBCSpeed(data)
 
   #Data Transformation
-  transfromBCData(data, speed, timestamp)
+  transformBCData(data, speed, timestamp)
 
 
   if skip == False:
@@ -266,7 +266,7 @@ def getStopServiceKey(data):
   service_key = data["service_key"]
   return service_key
 
-def validateStopData(data):
+def assertStopData(data):
   global skip
 
   #route_id
@@ -310,13 +310,13 @@ def transformStopData(service_key, direction):
   else:
     skip = True
 
-def consume_stop(data):
+def consumeStopData(data):
 
   global skip
   skip = False
   
   #Data Validation
-  validateStopData(data)
+  assertStopData(data)
 
   trip_id = getStopTripId(data)
   route_number = getStopRouteNumber(data)
@@ -337,7 +337,7 @@ def writeToFile(filename, data):
   f.close()
 
 def loadCommandList():
-  load(conn, cmdlist)
+  loadToDB(conn, cmdlist)
   cmdlist.clear()
 
 def processMsg():
@@ -353,9 +353,9 @@ def processMsg():
   record_key = str(record_key)
 
   if record_key == "b'sensor-data'":
-    consume_bc(data)
+    consumeBCData(data)
   if record_key == "b'stop-data'":
-    consume_stop(data)
+    consumeStopData(data)
 
 if __name__ == '__main__':
 
@@ -392,7 +392,7 @@ if __name__ == '__main__':
     consumer.subscribe([topic])
 
     #connect to db
-    conn = dbconnect()
+    conn = connectToDB()
 
     # Process messages
     total_count = 0
