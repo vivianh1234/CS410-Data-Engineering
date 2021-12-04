@@ -170,20 +170,7 @@ def consume_bc(data):
   #Data Transformation
   
   #Timestamp: Convert the ACT_TIME (seconds from midnight) to postgres timestamp
-  #sec = int(data["ACT_TIME"])
-
-
-  #actual_time = dt.timedelta(seconds = int(data['ACT_TIME']))
-  #timestamp = dt.datetime.strptime(data['OPD_DATE'], '%Y-%M-%D')
-  #timestamp = timestamp + actual_time
-  #timestamp = timestamp.isoformat()
-  
-  
   timestamp = str(data["OPD_DATE"]) + " " + str(convert_t(data["ACT_TIME"]))
-  #timestamp = datetime.timedelta(actual_time)
-
-  #timestamp = dt.datetime.fromtimestamp(time_converted).strftime("%H:%M:%S")
-  #timestamp = str(data["OPD_DATE"] + " " + timestamp)
 
   #Latitude: convert the gps_latitude string to a float
   latitude = gps_lat
@@ -193,7 +180,6 @@ def consume_bc(data):
 
   #Direction: convert the direction string to an integer
   if data["DIRECTION"] == "":
-    #direction = None
     skip = True
   else:
     direction = int(data["DIRECTION"])
@@ -201,7 +187,6 @@ def consume_bc(data):
   #Speed: convert the velocity string into a float and convert the float from 
   #meters per second to miles per hour.
   if data["VELOCITY"] == "":
-    #speed = None
     skip = True
   else:
     speed = float(data["VELOCITY"])
@@ -285,7 +270,6 @@ def consume_stop(data):
   if skip == False:
     cmd = f"UPDATE {TableNameT} SET route_id = '{route_number}', service_key = '{service_key}', direction = '{direction}' WHERE trip_id = {trip_id};"
     cmdlist.append(cmd)
-    #print(cmd)
 
 
 
@@ -363,19 +347,15 @@ if __name__ == '__main__':
                 record_value = msg.value()
                 # load kafka msg value into python dictionary
                 data = json.loads(record_value)
-#                count = data['count']
-#                total_count += count
+
                 print("Consumed record with key {} and value"
-#                      .format(record_key, record_value, total_count))
                       .format(record_key, record_value))
 
                 record_key = str(record_key)
 
                 if record_key == "b'sensor-data'":
-                  #print("consuming bc")
                   consume_bc(data)
                 if record_key == "b'stop-data'":
-                  #print("consuming stop-data woohoo")
                   consume_stop(data)
 
                 skip = False
