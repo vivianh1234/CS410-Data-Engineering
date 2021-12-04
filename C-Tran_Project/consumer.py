@@ -75,9 +75,15 @@ def load(conn, icmdlist):
 		elapsed = time.perf_counter() - start
 		print(f'Finished Loading. Elapsed Time: {elapsed:0.4} seconds')
 
-#deal with breadcrumb data
-def consume_bc(data):
+def convert_latitude(data):
+  gps_lat = float(data['GPS_LATITUDE'])
+  return gps_lat
 
+def convert_longitude(data):
+  gps_long = float(data['GPS_LONGITUDE'])
+  return gps_long
+
+def assertData(data):
   global skip
   skip = False
 
@@ -95,7 +101,7 @@ def consume_bc(data):
   #assert that the gps longitude exists and is within the range -180 to 180
   gps_long = 0
   if data['GPS_LONGITUDE'] != "":
-    gps_long = float(data['GPS_LONGITUDE'])
+    gps_long = convert_longitude(data)
     if gps_long < -180 or gps_long > 180:
       skip = True 
       failures["gps_longitude_range"].append(data)
@@ -105,7 +111,7 @@ def consume_bc(data):
   #assert that the gps latitude exists and is within the range -90 to 90
   gps_lat = 0
   if data['GPS_LATITUDE'] != "":
-    gps_lat = float(data['GPS_LATITUDE'])
+    gps_lat = convert_latitude(data)
     if gps_lat < -180 or gps_long > 180:
       skip = True 
       failures["gps_latitude_range"].append(data)
@@ -167,16 +173,22 @@ def consume_bc(data):
       skip = True 
       failures["gps_hdop_nonnegative"].append(data)
 
+#deal with breadcrumb data
+def consume_bc(data):
+
+  global skip
+  assertData(data)
+
   #Data Transformation
   
   #Timestamp: Convert the ACT_TIME (seconds from midnight) to postgres timestamp
   timestamp = str(data["OPD_DATE"]) + " " + str(convert_t(data["ACT_TIME"]))
 
   #Latitude: convert the gps_latitude string to a float
-  latitude = gps_lat
+  latitude = convert_latitude(data)
 
   #Longitude: convert the gps_longitude string to a float
-  longitude = gps_long
+  longitude = convert_longitude(data)
 
   #Direction: convert the direction string to an integer
   if data["DIRECTION"] == "":
