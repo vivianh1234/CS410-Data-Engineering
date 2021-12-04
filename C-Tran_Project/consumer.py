@@ -220,19 +220,29 @@ def consume_bc(data):
     cmd = f"INSERT INTO {TableNameBC} VALUES ('{timestamp}', {latitude}, {longitude}, {direction}, {speed}, {trip_id});"
     cmdlist.append(cmd)
         
-
-def consume_stop(data):
-
-  global skip
-  skip = False
+def getStopRouteNumber(data):
+  route_number = int(data["route_number"])
+  return route_number
   
-  #Data Validation
+def getStopTripId(data):
   trip_id = int(data["trip_id"])
+  return trip_id
+
+def getStopDirection(data):
+  direction = int(data["direction"])
+  return direction
+
+def getStopServiceKey(data):
+  service_key = data["service_key"]
+  return service_key
+
+def validateStopData(data):
+  global skip
 
   #route_id
   route_number = 0
   if data["route_number"] != '':
-    route_number = int(data["route_number"])
+    route_number = getStopRouteNumber(data)
     if route_number < 0:
       skip = True
       failures["route_id_range"].append(data)
@@ -240,19 +250,20 @@ def consume_stop(data):
   #direction
   direction = -1
   if data["direction"] != '':
-    direction = int(data["direction"])
+    direction = getStopDirection(data)
     if direction != 0 and direction != 1: 
         skip = True 
         failures["stop_direction_range"].append(data)
 
   #service_key
-  service_key = data["service_key"]
+  service_key = getStopServiceKey(data)
   if service_key != 'W' and service_key != 'S' and service_key != 'U': 
       skip = True 
       failures["stop_direction_range"].append(data)
 
+def transformStopData(service_key, direction):
+  global skip
 
-  #Data Transformation
   if service_key == 'W':
     service_key = "Weekday"
   elif service_key == 'S':
@@ -269,6 +280,21 @@ def consume_stop(data):
   else:
     skip = True
 
+def consume_stop(data):
+
+  global skip
+  skip = False
+  
+  #Data Validation
+  validateStopData(data)
+
+  trip_id = getStopTripId(data)
+  route_number = getStopRouteNumber(data)
+  service_key = getStopServiceKey(data)
+  direction = getStopDirection(data)
+
+  #Data Transformation
+  transformStopData(service_key, direction)
 
   if skip == False:
     cmd = f"UPDATE {TableNameT} SET route_id = '{route_number}', service_key = '{service_key}', direction = '{direction}' WHERE trip_id = {trip_id};"
