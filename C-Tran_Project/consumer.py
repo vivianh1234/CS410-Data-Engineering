@@ -33,13 +33,7 @@ import re
 import psycopg2
 import time
 
-timezone = pytz.timezone("US/Pacific")
-date = dt.datetime.today()
-today = timezone.localize(date)
 data = urllib.request.urlopen("http://rbi.ddns.net/getBreadCrumbData")
-name = "AssertionFailures{today}.txt".format(today = today)
-name = name[:24]+".txt"
-
 DBname = "gradualghosts_db"
 DBuser = "hvivian"
 DBpwd = "grubbythumbsup"
@@ -47,6 +41,14 @@ TableNameBC = "breadcrumb"
 TableNameT = "trip"
 cmdlist = []
 skip = False
+
+def getFilename():
+  timezone = pytz.timezone("US/Pacific")
+  date = dt.datetime.today()
+  today = timezone.localize(date)
+  name = "AssertionFailures{today}.txt".format(today = today)
+  name = name[:24]+".txt"
+  return name
 
 def convert_t(seconds):
   return time.strftime("%H:%M:%S", time.gmtime(int(seconds)))
@@ -74,6 +76,18 @@ def load(conn, icmdlist):
 
 		elapsed = time.perf_counter() - start
 		print(f'Finished Loading. Elapsed Time: {elapsed:0.4} seconds')
+
+def createConsumer(conf):
+  consumer = Consumer({
+      'bootstrap.servers': conf['bootstrap.servers'],
+      'sasl.mechanisms': conf['sasl.mechanisms'],
+      'security.protocol': conf['security.protocol'],
+      'sasl.username': conf['sasl.username'],
+      'sasl.password': conf['sasl.password'],
+      'group.id': 'test_group',
+      'auto.offset.reset': 'earliest',
+  })
+  return consumer
 
 def getBCLatitude(data):
   gps_lat = float(data['GPS_LATITUDE'])
@@ -317,8 +331,31 @@ def consume_stop(data):
     cmdlist.append(cmd)
 
 
+def writeToFile(filename, data):
+  f = open(filename, 'w')
+  f.write(data)
+  f.close()
 
+def loadCommandList():
+  load(conn, cmdlist)
+  cmdlist.clear()
 
+def processMsg():
+  # Check for Kafka message
+  record_key = msg.key()
+  record_value = msg.value()
+  # load kafka msg value into python dictionary
+  data = json.loads(record_value)
+
+  print("Consumed record with key {} and value"
+        .format(record_key, record_value))
+
+  record_key = str(record_key)
+
+  if record_key == "b'sensor-data'":
+    consume_bc(data)
+  if record_key == "b'stop-data'":
+    consume_stop(data)
 
 if __name__ == '__main__':
 
@@ -328,18 +365,12 @@ if __name__ == '__main__':
     topic = args.topic
     conf = ccloud_lib.read_ccloud_config(config_file)
 
+    name = getFilename()
+
     # Create Consumer instance
     # 'auto.offset.reset=earliest' to start reading from the beginning of the
     #   topic if no committed offsets exist
-    consumer = Consumer({
-        'bootstrap.servers': conf['bootstrap.servers'],
-        'sasl.mechanisms': conf['sasl.mechanisms'],
-        'security.protocol': conf['security.protocol'],
-        'sasl.username': conf['sasl.username'],
-        'sasl.password': conf['sasl.password'],
-        'group.id': 'test_group',
-        'auto.offset.reset': 'earliest',
-    })
+    consumer = createConsumer(conf) 
 
     #dict for assertion failures
     failures = {"event_no_trip_existence":[],
@@ -375,39 +406,21 @@ if __name__ == '__main__':
                 # rebalance and start consuming
                 print("Waiting for message or event/error in poll()")
                 if len(cmdlist) > 0:
-                  load(conn, cmdlist)
-                  cmdlist.clear()
+                  loadCommandList()
                 
                 #write to assertion failure file
-                f = open(name, 'w')
-                f.write(str(failures))
-                f.close()
+                writeToFile(name, str(failures))
 
                 continue
             elif msg.error():
                 print('error: {}'.format(msg.error()))
             else:
-                # Check for Kafka message
-                record_key = msg.key()
-                record_value = msg.value()
-                # load kafka msg value into python dictionary
-                data = json.loads(record_value)
-
-                print("Consumed record with key {} and value"
-                      .format(record_key, record_value))
-
-                record_key = str(record_key)
-
-                if record_key == "b'sensor-data'":
-                  consume_bc(data)
-                if record_key == "b'stop-data'":
-                  consume_stop(data)
+                processMsg()
 
                 skip = False
 
                 if len(cmdlist) > 20:
-                  load(conn, cmdlist)
-                  cmdlist.clear()
+                  loadCommandList()
 
 
     except KeyboardInterrupt:
