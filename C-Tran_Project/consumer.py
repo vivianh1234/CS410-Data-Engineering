@@ -75,17 +75,32 @@ def load(conn, icmdlist):
 		elapsed = time.perf_counter() - start
 		print(f'Finished Loading. Elapsed Time: {elapsed:0.4} seconds')
 
-def convert_latitude(data):
+def getBCLatitude(data):
   gps_lat = float(data['GPS_LATITUDE'])
   return gps_lat
 
-def convert_longitude(data):
+def getBCLongitude(data):
   gps_long = float(data['GPS_LONGITUDE'])
   return gps_long
 
-def assertData(data):
+def getBCSpeed(data):
+  speed = float(data["VELOCITY"])
+  return speed
+
+def getBCDirection(data):
+  direction = int(data["DIRECTION"])
+  return direction
+
+def getBCTripId(data):
+  trip_id = int(data["EVENT_NO_TRIP"])
+  return trip_id
+
+def getBCVehicleId(data):
+  vehicle_id = int(data["VEHICLE_ID"])
+  return vehicle_id
+
+def assertBCData(data):
   global skip
-  skip = False
 
   #Data Assertions
   #assert every record has trip number
@@ -101,7 +116,7 @@ def assertData(data):
   #assert that the gps longitude exists and is within the range -180 to 180
   gps_long = 0
   if data['GPS_LONGITUDE'] != "":
-    gps_long = convert_longitude(data)
+    gps_long = getBCLongitude(data)
     if gps_long < -180 or gps_long > 180:
       skip = True 
       failures["gps_longitude_range"].append(data)
@@ -111,7 +126,7 @@ def assertData(data):
   #assert that the gps latitude exists and is within the range -90 to 90
   gps_lat = 0
   if data['GPS_LATITUDE'] != "":
-    gps_lat = convert_latitude(data)
+    gps_lat = getBCLatitude(data)
     if gps_lat < -180 or gps_long > 180:
       skip = True 
       failures["gps_latitude_range"].append(data)
@@ -173,42 +188,43 @@ def assertData(data):
       skip = True 
       failures["gps_hdop_nonnegative"].append(data)
 
+def transfromBCData(data, speed, timestamp):
+  #Timestamp: Convert the ACT_TIME (seconds from midnight) to postgres timestamp
+  timestamp = str(data["OPD_DATE"]) + " " + str(convert_t(data["ACT_TIME"]))
+
+  #Speed: convert the velocity string into a float and convert the float from 
+  #meters per second to miles per hour.
+  speed = speed * 2.237
+
 #deal with breadcrumb data
 def consume_bc(data):
 
   global skip
-  assertData(data)
+  skip = False
 
-  #Data Transformation
-  
-  #Timestamp: Convert the ACT_TIME (seconds from midnight) to postgres timestamp
-  timestamp = str(data["OPD_DATE"]) + " " + str(convert_t(data["ACT_TIME"]))
+  assertBCData(data)
 
   #Latitude: convert the gps_latitude string to a float
-  latitude = convert_latitude(data)
+  latitude = getBCLatitude(data)
 
   #Longitude: convert the gps_longitude string to a float
-  longitude = convert_longitude(data)
+  longitude = getBCLongitude(data)
 
   #Direction: convert the direction string to an integer
-  if data["DIRECTION"] == "":
-    skip = True
-  else:
-    direction = int(data["DIRECTION"])
-
-  #Speed: convert the velocity string into a float and convert the float from 
-  #meters per second to miles per hour.
-  if data["VELOCITY"] == "":
-    skip = True
-  else:
-    speed = float(data["VELOCITY"])
-    speed = speed * 2.237
+  direction = getBCDirection(data)
 
   #Trip_id: convert the event_no_trip string to an integer
-  trip_id = int(data["EVENT_NO_TRIP"])
+  trip_id = getBCTripId(data)
       
   #Vehicle_id: convert the vehicle_id string to an integer
-  vehicle_id = int(data["VEHICLE_ID"])
+  vehicle_id = getBCVehicleId(data)
+
+  timestamp = None
+
+  speed = getBCSpeed(data)
+
+  #Data Transformation
+  transfromBCData(data, speed, timestamp)
 
 
   if skip == False:
