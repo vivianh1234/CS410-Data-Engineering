@@ -17,17 +17,14 @@ def getFilename():
 
 def getData():
     data = urllib.request.urlopen("http://rbi.ddns.net/getBreadCrumbData")
-    #parsing JSON data
     raw = data.read()
     return raw
 
 def loadBreadcrumbs():
     breadcrumbs = json.loads(raw)
-    #print(breadcrumbs[0])
     return breadcrumbs
 
 def writeToFile(name, raw):
-    #write to file
     f = open(name, 'wb')
     f.write(raw)
     f.close()
@@ -69,7 +66,6 @@ if __name__ == '__main__':
     topic = args.topic
     conf = ccloud_lib.read_ccloud_config(config_file)
 
-    # Create Producer instance
     producer = createProducer(conf) 
 
     # Create topic if needed
