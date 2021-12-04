@@ -207,17 +207,8 @@ def consume_bc(data):
   #Trip_id: convert the event_no_trip string to an integer
   trip_id = int(data["EVENT_NO_TRIP"])
       
-  #Route_id: Not enough data to fill out the data. Set to NULL
-  route_id = None
-
   #Vehicle_id: convert the vehicle_id string to an integer
   vehicle_id = int(data["VEHICLE_ID"])
-
-  #Service_key:Not enough data to fill out the data. Set to NULL
-  service_key = None
-
-  #Direction:Not enough data to fill out the data. Set to NULL
-  direction_0_1 = None
 
 
   if skip == False:
