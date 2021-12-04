@@ -56,7 +56,6 @@ def getFilename():
 def convert_time(seconds):
     return time.strftime("%H:%M:%S", time.gmtime(int(seconds)))
 
-# connect to the database
 def connectToDB():
     connection = psycopg2.connect(
         host="localhost",
@@ -127,18 +126,14 @@ def getBCVehicleId(data):
 def assertBCData(data):
     global skip
 
-    #Data Assertions
-    #assert every record has trip number
     if data['EVENT_NO_TRIP'] == "":
         skip = True
         failures["event_no_trip_existence"].append(data)
 
-    #assert that the stop index has a length of 9
     if len(data['EVENT_NO_STOP']) < 9:
         skip = True
         failures["event_no_stop_length"].append(data)
 
-    #assert that the gps longitude exists and is within the range -180 to 180
     gps_long = 0
     if data['GPS_LONGITUDE'] != "":
         gps_long = getBCLongitude(data)
@@ -148,7 +143,6 @@ def assertBCData(data):
     else:
         skip = True
 
-    #assert that the gps latitude exists and is within the range -90 to 90
     gps_lat = 0
     if data['GPS_LATITUDE'] != "":
         gps_lat = getBCLatitude(data)
@@ -158,26 +152,22 @@ def assertBCData(data):
     else:
         skip = True
 
-    #assert that the date is in the correct format
     regex = "^\d{1,2}-(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC){1}-\d{2}$"
     match = re.search(regex, data['OPD_DATE'])
     if match == None:
         skip = True
         failures["opd_date_format"].append(data)
 
-    #assert that the meters is greater than zero
     meters = int(data['METERS'])
     if meters <= 0:
         skip = True
         failures["meters_range"].append(data)
 
-    #The ACT_TIME field should range from 0 - 86400
     act_time = int(data["ACT_TIME"])
     if act_time < 14867 or act_time > 90521:
         skip = True
         failures["act_time_range"].append(data)
 
-    #If the VELOCITY field exists, it should be a non-negative number
     if data["VELOCITY"] == '':
         skip = True
         pass
@@ -187,7 +177,6 @@ def assertBCData(data):
             skip = True
             failures["velocity_nonnegative"].append(data)
 
-    #Every direction value should be in the range 0 - 359
     if data["DIRECTION"] == '':
         skip = True
         pass
@@ -197,7 +186,6 @@ def assertBCData(data):
             skip = True
             failures["direction_range"].append(data)
 
-    #The GPS_SATELLITES field should be a non-negative number
     if data['GPS_SATELLITES'] != "":
         gps_satellites = int(data["GPS_SATELLITES"])
         if gps_satellites < 0:
@@ -206,7 +194,6 @@ def assertBCData(data):
     else:
         skip = True
 
-    #The GPS_HDOP field should be a non-negative number
     if data["GPS_HDOP"] != "":
         gps_hdop = float(data["GPS_HDOP"])
         if gps_hdop < 0.0:
@@ -218,8 +205,7 @@ def transformBCData(data, speed, timestamp):
     #Timestamp: Convert the ACT_TIME (seconds from midnight) to postgres timestamp
     timestamp = str(data["OPD_DATE"]) + " " + str(convert_time(data["ACT_TIME"]))
 
-    #Speed: convert the velocity string into a float and convert the float from
-    #meters per second to miles per hour.
+    #Speed: convert the velocity from meters per second to miles per hour.
     speed = speed * 2.237
 
 #deal with breadcrumb data
@@ -229,20 +215,14 @@ def consumeBCData(data):
 
     assertBCData(data)
 
-    #Latitude: convert the gps_latitude string to a float
     latitude = getBCLatitude(data)
-    #Longitude: convert the gps_longitude string to a float
     longitude = getBCLongitude(data)
-    #Direction: convert the direction string to an integer
     direction = getBCDirection(data)
-    #Trip_id: convert the event_no_trip string to an integer
     trip_id = getBCTripId(data)
-    #Vehicle_id: convert the vehicle_id string to an integer
     vehicle_id = getBCVehicleId(data)
     timestamp = None
     speed = getBCSpeed(data)
 
-    #Data Transformation
     transformBCData(data, speed, timestamp)
 
     if skip == False:
@@ -278,7 +258,6 @@ def getStopServiceKey(data):
 def assertStopData(data):
     global skip
 
-    #route_id
     route_number = 0
     if data["route_number"] != '':
         route_number = getStopRouteNumber(data)
@@ -286,7 +265,6 @@ def assertStopData(data):
             skip = True
             failures["route_id_range"].append(data)
 
-    #direction
     direction = -1
     if data["direction"] != '':
         direction = getStopDirection(data)
@@ -294,7 +272,6 @@ def assertStopData(data):
             skip = True
             failures["stop_direction_range"].append(data)
 
-    #service_key
     service_key = getStopServiceKey(data)
     if service_key != 'W' and service_key != 'S' and service_key != 'U':
         skip = True
@@ -325,7 +302,6 @@ def consumeStopData(data):
     global skip
     skip = False
 
-    #Data Validation
     assertStopData(data)
 
     trip_id = getStopTripId(data)
@@ -333,7 +309,6 @@ def consumeStopData(data):
     service_key = getStopServiceKey(data)
     direction = getStopDirection(data)
 
-    #Data Transformation
     transformStopData(service_key, direction)
 
     if skip == False:
@@ -356,7 +331,6 @@ def processMsg():
     # Check for Kafka message
     record_key = msg.key()
     record_value = msg.value()
-    # load kafka msg value into python dictionary
     data = json.loads(record_value)
 
     print("Consumed record with key {} and value"
@@ -384,7 +358,7 @@ if __name__ == '__main__':
     #   topic if no committed offsets exist
     consumer = createConsumer(conf)
 
-    #dict for assertion failures
+    #Dictionary for assertion failures
     failures = {"event_no_trip_existence": [],
                 "event_no_stop_length": [],
                 "gps_longitude_range": [],
@@ -400,10 +374,8 @@ if __name__ == '__main__':
                 "stop_direction_range": [],
                 "route_id_range": []}
 
-    # Subscribe to topic
     consumer.subscribe([topic])
 
-    #connect to db
     conn = connectToDB()
 
     # Process messages
