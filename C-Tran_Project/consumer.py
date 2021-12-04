@@ -53,7 +53,7 @@ def getFilename():
     return name
 
 
-def convert_time(seconds):
+def convertTime(seconds):
     return time.strftime("%H:%M:%S", time.gmtime(int(seconds)))
 
 def connectToDB():
@@ -203,7 +203,7 @@ def assertBCData(data):
 
 def transformBCData(data, speed, timestamp):
     #Timestamp: Convert the ACT_TIME (seconds from midnight) to postgres timestamp
-    timestamp = str(data["OPD_DATE"]) + " " + str(convert_time(data["ACT_TIME"]))
+    timestamp = str(data["OPD_DATE"]) + " " + str(convertTime(data["ACT_TIME"]))
 
     #Speed: convert the velocity from meters per second to miles per hour.
     speed = speed * 2.237
